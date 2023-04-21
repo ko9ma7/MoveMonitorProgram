@@ -27,33 +27,6 @@ namespace MoveMonitorProgram
         public static extern bool MoveWindow(IntPtr hwnd, int x, int y, int nWidth, int nHeight, bool bRepaint);
 
 
-        // 프로그램 창을 선택한 모니터로 이동하는 함수
-        private void MoveWindowToMonitor(Process process, Screen screen)
-        {
-            IntPtr handle = process.MainWindowHandle;
-            if (handle != IntPtr.Zero)
-            {
-                RECT rect;
-                GetWindowRect(handle, out rect);
-                int width = rect.Right - rect.Left;
-                int height = rect.Bottom - rect.Top;
-                int newX = screen.Bounds.X + (screen.Bounds.Width - width) / 2;
-                int newY = screen.Bounds.Y + (screen.Bounds.Height - height) / 2;
-                MoveWindow(handle, newX, newY, width, height, true);
-            }
-        }
-        /*
-        // 프로그램 창을 선택한 모니터로 이동하는 함수
-        private void MoveWindowToMonitor(Process process, Screen screen)
-        {
-            IntPtr handle = process.MainWindowHandle;
-            if (handle != IntPtr.Zero)
-            {
-                NativeMethods.MoveWindow(handle, screen.Bounds.X, screen.Bounds.Y, screen.Bounds.Width, screen.Bounds.Height, true);
-            }
-        }
-        */
-
         // NativeMethods 클래스를 정의하여 MoveWindow 함수를 사용할 수 있도록 함
         private static class NativeMethods
         {
@@ -98,20 +71,56 @@ namespace MoveMonitorProgram
         {
             InitializeComponent();
             runningProcesses = new List<Process>();
+            //LoadRunningProcesses();
             LoadRunningProcesses();
             LoadMonitors();
         }
 
-        private void LoadRunningProcesses()
+        // 프로그램 창을 선택한 모니터로 이동하는 함수
+        private void MoveWindowToMonitor(Process process, Screen screen)
         {
-            Process[] processes = Process.GetProcesses();
-            foreach (Process process in processes)
+            IntPtr handle = process.MainWindowHandle;
+            if (handle != IntPtr.Zero)
             {
-                runningProcesses.Add(process);
-                comboBox1.Items.Add(process.ProcessName);
+                RECT rect;
+                GetWindowRect(handle, out rect);
+                int width = rect.Right - rect.Left;
+                int height = rect.Bottom - rect.Top;
+                int newX = screen.WorkingArea.X + (screen.WorkingArea.Width - width) / 2;  // 수정
+                int newY = screen.WorkingArea.Y + (screen.WorkingArea.Height - height) / 2;  // 수정
+                MoveWindow(handle, newX, newY, width, height, true);
             }
         }
 
+        //프로그램을 불러오는 함수 string[] processNames = { "chrome", "dnplayer", "iMax", "KakaoTalk" }; < ~ 프로그램 불러올 이름을 선택해야함
+        private void LoadRunningProcesses()
+        {
+            Process[] processes = Process.GetProcesses();
+            string[] processNames = { "chrome", "dnplayer", "iMax", "KakaoTalk" };
+            foreach (Process process in processes)
+            {
+                if (!processNames.Contains(process.ProcessName))
+                    continue;
+
+                runningProcesses.Add(process);
+                string windowTitle = "";
+                if (process.MainWindowTitle != "")
+                {
+                    windowTitle = " - " + process.MainWindowTitle;
+                }
+                string displayName = process.ProcessName + windowTitle;
+
+                // 프로세스의 핸들로부터 위치와 사이즈 정보를 가져옴
+                RECT rect;
+                GetWindowRect(process.MainWindowHandle, out rect);
+                string processInfo = $"({rect.Left}, {rect.Top}) {rect.Right - rect.Left} x {rect.Bottom - rect.Top}";
+
+                displayName += $" {processInfo}";
+                comboBox1.Items.Add(displayName);
+            }
+        }
+
+        //사용중인 모니터를 불러오는 함수
         private void LoadMonitors()
         {
             comboBox2.Items.Clear();
@@ -125,10 +134,17 @@ namespace MoveMonitorProgram
                 comboBox2.Items.Add("Monitor " + monitorCount);
                 return true;
             }, IntPtr.Zero);
+
+            // 기본 선택을 첫 번째 모니터로 설정
+            if (comboBox2.Items.Count > 0)
+            {
+                comboBox2.SelectedIndex = 0;
+            }
         }
 
         private void button1_Click_1(object sender, EventArgs e)
         {
+            comboBox1.Items.Clear();
             LoadRunningProcesses();
 
         }
